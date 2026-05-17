@@ -489,56 +489,56 @@ class GodPredictor:
 # ========== API ==========
 class API:
     @staticmethod
-def fetch_history(limit=MAX_HISTORY_LIMIT):
-    try:
-        all_res = []
-        page = 1
-        size = min(50, limit)
+    def fetch_history(limit=MAX_HISTORY_LIMIT):
+        try:
+            all_res = []
+            page = 1
+            size = min(50, limit)
 
-        session = requests.Session()
-        session.headers.update({
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            "Referer": "https://sikkimin.com/",
-            "Accept": "application/json, text/plain, */*",
-            "Accept-Language": "en-US,en;q=0.9",
-            "Origin": "https://sikkimin.com"
-        })
+            session = requests.Session()
+            session.headers.update({
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                "Referer": "https://sikkimin.com/",
+                "Accept": "application/json, text/plain, */*",
+                "Accept-Language": "en-US,en;q=0.9",
+                "Origin": "https://sikkimin.com"
+            })
 
-        while len(all_res) < limit and page <= 20:
-            ts = int(time.time() * 1000)
-            params = {
-                "ts": ts,
-                "pageNo": page,
-                "pageSize": size
-            }
-            resp = session.get(HISTORY_API, params=params, timeout=15)
+            while len(all_res) < limit and page <= 20:
+                ts = int(time.time() * 1000)
+                params = {
+                    "ts": ts,
+                    "pageNo": page,
+                    "pageSize": size
+                }
+                resp = session.get(HISTORY_API, params=params, timeout=15)
 
-            if resp.status_code != 200:
-                print(f"API status {resp.status_code}, page {page}")
-                break
+                if resp.status_code != 200:
+                    print(f"API status {resp.status_code}, page {page}")
+                    break
 
-            data = resp.json()
-            items = data.get("data", {}).get("list", [])
-            if not items:
-                break
+                data = resp.json()
+                items = data.get("data", {}).get("list", [])
+                if not items:
+                    break
 
-            for it in items:
-                num = it.get("number")
-                if num is not None:
-                    try:
-                        n = int(num)
-                        all_res.append("Small" if n <= 4 else "Big")
-                    except:
-                        pass
-            page += 1
-            time.sleep(0.5)
+                for it in items:
+                    num = it.get("number")
+                    if num is not None:
+                        try:
+                            n = int(num)
+                            all_res.append("Small" if n <= 4 else "Big")
+                        except:
+                            pass
+                page += 1
+                time.sleep(0.5)
 
-        print(f"✅ Fetched {len(all_res)} games from API")
-        return all_res[:limit]
-    except Exception as e:
-        print(f"API Error: {e}")
-        return None
-    
+            print(f"✅ Fetched {len(all_res)} games from API")
+            return all_res[:limit]
+        except Exception as e:
+            print(f"API Error: {e}")
+            return None
+
     @staticmethod
     def get_latest_period():
         """Get the latest COMPLETED period"""
@@ -546,7 +546,7 @@ def fetch_history(limit=MAX_HISTORY_LIMIT):
             ts = int(time.time() * 1000)
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                "Referer": "https://www.sikkimin.com/",
+                "Referer": "https://sikkimin.com/",
                 "Accept": "application/json"
             }
             params = {"ts": ts, "pageNo": 1, "pageSize": 1}
