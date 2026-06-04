@@ -11,7 +11,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 
 # ============ CONFIGURATION ============
 BOT_TOKEN = "8607448641:AAE5HL55uKe1fsGZTrhMv7zgfzpj1EhA4e4"    # BotFather se lo
-CHAT_ID = "-5140401914"        # apna chat ID (userinfobot se)
+CHAT_ID = "8665741437"        # apna chat ID (userinfobot se)
 API_URL = "https://wingolast100.vercel.app/api/results?typeId=1&apiKey=12a04165-748c-4144-9398-96bd2e0ad956&token=1a97a413-ff57-4097-a44c-4bd402ace8d5&limit=100"
 
 # ============ DATABASE SETUP ============
