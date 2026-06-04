@@ -2,16 +2,15 @@
 import requests
 import sqlite3
 import json
-import time
 import random
 import asyncio
 from datetime import datetime
-from telegram import Bot, Update
+from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
 # ============ CONFIGURATION ============
-BOT_TOKEN = "8607448641:AAE5HL55uKe1fsGZTrhMv7zgfzpj1EhA4e4"    # BotFather se lo
-CHAT_ID = "8665741437"        # apna chat ID (userinfobot se)
+BOT_TOKEN = "8607448641:AAE5HL55uKe1fsGZTrhMv7zgfzpj1EhA4e4"   # Replace with your token
+CHAT_ID = "8665741437"   # Your personal chat ID (positive)
 API_URL = "https://wingolast100.vercel.app/api/results?typeId=1&apiKey=12a04165-748c-4144-9398-96bd2e0ad956&token=1a97a413-ff57-4097-a44c-4bd402ace8d5&limit=100"
 
 # ============ DATABASE SETUP ============
@@ -43,14 +42,14 @@ def init_db():
 
 init_db()
 
-# ============ RULES (exactly as d.html) ============
+# ============ HELPER FUNCTIONS ============
 def get_class(n):
     return "Big" if n >= 5 else "Small"
 
 def is_violet(n):
     return n in (0, 5)
 
-# ---------- 30+ TRICKS ----------
+# ============ 30+ TRICKS (exact same as d.html, all included) ============
 def trick_martingale(seq):
     if len(seq) < 2: return None
     last = get_class(seq[0]); prev = get_class(seq[1])
@@ -315,22 +314,38 @@ def trick_violetRebound(seq):
         return {"predClass": "Big", "confidence": 68}
     return None
 
+# List of all tricks
 ALL_TRICKS = [
-    ("Martingale", trick_martingale), ("Trend Follow", trick_trendFollow),
-    ("Alternation", trick_alternation), ("Frequency (20)", trick_frequency),
-    ("Momentum", trick_momentum), ("Pattern 5-seq", trick_pattern5),
-    ("2x Flip", trick_doubleFlip), ("Streak Reversal", trick_streakRev),
-    ("Zigzag", trick_zigzag), ("Fibonacci Wtd", trick_fibonacci),
-    ("Law of Third", trick_lawThird), ("Gap Analysis", trick_gapAnalysis),
-    ("Even/Odd Streak", trick_evenOddStreak), ("Hot Class (10)", trick_hotClass),
-    ("Moving Average", trick_movingAvg), ("Digit Sum", trick_digitSum),
-    ("Oscillator", trick_oscillator), ("Extreme Rev", trick_extremeRev),
-    ("Sleeper Alert", trick_sleeper), ("Parity Cycle", trick_parityCycle),
-    ("Chinese Rem", trick_chineseRem), ("Reverse Mart.", trick_revMartingale),
-    ("Fibonacci Bet", trick_fibBetting), ("Mean Reversion", trick_meanReversion),
-    ("Even/Odd Alt", trick_evenOddAlt), ("Consecutive Big", trick_consecutiveBig),
-    ("Consecutive Small", trick_consecutiveSmall), ("Palindrome", trick_palindrome),
-    ("Digital Root", trick_digitalRoot), ("Violet Reb(Big)", trick_violetRebound)
+    ("Martingale", trick_martingale),
+    ("Trend Follow", trick_trendFollow),
+    ("Alternation", trick_alternation),
+    ("Frequency (20)", trick_frequency),
+    ("Momentum", trick_momentum),
+    ("Pattern 5-seq", trick_pattern5),
+    ("2x Flip", trick_doubleFlip),
+    ("Streak Reversal", trick_streakRev),
+    ("Zigzag", trick_zigzag),
+    ("Fibonacci Wtd", trick_fibonacci),
+    ("Law of Third", trick_lawThird),
+    ("Gap Analysis", trick_gapAnalysis),
+    ("Even/Odd Streak", trick_evenOddStreak),
+    ("Hot Class (10)", trick_hotClass),
+    ("Moving Average", trick_movingAvg),
+    ("Digit Sum", trick_digitSum),
+    ("Oscillator", trick_oscillator),
+    ("Extreme Rev", trick_extremeRev),
+    ("Sleeper Alert", trick_sleeper),
+    ("Parity Cycle", trick_parityCycle),
+    ("Chinese Rem", trick_chineseRem),
+    ("Reverse Mart.", trick_revMartingale),
+    ("Fibonacci Bet", trick_fibBetting),
+    ("Mean Reversion", trick_meanReversion),
+    ("Even/Odd Alt", trick_evenOddAlt),
+    ("Consecutive Big", trick_consecutiveBig),
+    ("Consecutive Small", trick_consecutiveSmall),
+    ("Palindrome", trick_palindrome),
+    ("Digital Root", trick_digitalRoot),
+    ("Violet Reb(Big)", trick_violetRebound)
 ]
 
 # ============ PERFORMANCE TRACKING ============
@@ -362,13 +377,14 @@ def save_performance(perf):
 # ============ BACKTEST (pretrain on last 100 periods) ============
 def backtest_and_set_weights(full_history_numbers):
     if len(full_history_numbers) < 30:
+        print("Backtest: not enough data")
         return
     perf = load_performance()
     for name, trick in ALL_TRICKS:
         correct = 0
         total = 0
         for i in range(20, len(full_history_numbers)-1):
-            window = full_history_numbers[i-20:i][::-1]  # reverse to recent first
+            window = full_history_numbers[i-20:i][::-1]  # recent first
             actual = get_class(full_history_numbers[i])
             pred = trick(window)
             if pred and pred["confidence"] >= 45:
@@ -380,6 +396,7 @@ def backtest_and_set_weights(full_history_numbers):
         perf[name]["accuracy"] = acc
         perf[name]["weight"] = weight
         perf[name]["last_results"] = []
+        print(f"Backtest: {name} acc={acc:.2f} weight={weight:.2f} total={total}")
     save_performance(perf)
 
 # ============ FETCH PERIODS FROM API ============
@@ -403,7 +420,8 @@ def fetch_periods(limit=100):
                     continue
         parsed.sort(key=lambda x: x[0], reverse=True)
         return parsed[:limit]
-    except:
+    except Exception as e:
+        print("Fetch error:", e)
         return []
 
 def store_periods(periods):
@@ -446,21 +464,18 @@ def update_prediction_result(period, actual_num, actual_class, result):
     conn.commit()
     conn.close()
 
-def get_trick_weights():
-    perf = load_performance()
-    return {name: data["weight"] for name, data in perf.items()}
-
-# ============ ENSEMBLE & NUMBER PREDICTION (same as HTML) ============
-def get_best_tricks(perf, threshold=0.60):
-    best = [name for name,data in perf.items() if data["accuracy"] >= threshold]
+# ============ ENSEMBLE & NUMBER PREDICTION ============
+def get_best_tricks(perf, threshold=0.55):   # lowered threshold to include more tricks
+    best = [name for name, data in perf.items() if data["accuracy"] >= threshold]
     if not best:
         # fallback: top 5 by weight
         sorted_names = sorted(perf.keys(), key=lambda n: perf[n]["weight"], reverse=True)
         best = sorted_names[:5]
+        print("No trick reached threshold, using top 5 by weight:", best)
     return best
 
 def ensemble_predict(seq, perf):
-    best_names = get_best_tricks(perf, 0.60)
+    best_names = get_best_tricks(perf, 0.55)
     votes = {"Big": 0.0, "Small": 0.0}
     total_weight = 0.0
     predictions_map = {}
@@ -478,6 +493,7 @@ def ensemble_predict(seq, perf):
         best_class = "Big" if votes["Big"] > votes["Small"] else "Small"
         conf = (votes[best_class] / total_weight) * 100
         conf = min(94, max(55, conf))
+        print(f"Ensemble: best_class={best_class}, conf={conf:.1f}, active={active}")
     else:
         # fallback: last 20 trend
         big_count = sum(1 for i in range(min(20, len(seq))) if get_class(seq[i]) == "Big")
@@ -488,14 +504,16 @@ def ensemble_predict(seq, perf):
         conf = min(85, conf)
         predictions_map["fallback"] = {"predClass": best_class, "confidence": conf}
         active.append(("📊 Trend Fallback", best_class, conf, 0, 1.0))
+        print("Fallback used:", best_class, conf)
     return best_class, int(conf), predictions_map, active
 
 def predict_number(seq, pred_class, history_data):
-    # history_data is list of {period, number} latest first
     class_numbers = [r["number"] for r in history_data if get_class(r["number"]) == pred_class]
     if len(class_numbers) < 5:
-        if pred_class == "Big": return random.choice([5,6,7,8,9])
-        else: return random.choice([0,1,2,3,4])
+        if pred_class == "Big":
+            return random.choice([5,6,7,8,9])
+        else:
+            return random.choice([0,1,2,3,4])
     freq = [0]*10
     for n in class_numbers:
         freq[n] += 1
@@ -520,7 +538,6 @@ def predict_number(seq, pred_class, history_data):
         total = 1
     for i in range(10):
         combined[i] /= total
-    # weighted random
     r = random.random()
     cum = 0
     for i in range(10):
@@ -541,77 +558,66 @@ def update_performance_from_result(perf, predictions_map, actual_class):
             last_results.pop()
         live_acc = sum(last_results) / len(last_results) if last_results else 0.5
         backtest_acc = perf[name]["accuracy"]
-        combined = backtest_acc * 0.6 + live_acc * 0.4
-        perf[name]["accuracy"] = combined
-        perf[name]["weight"] = min(1.5, max(0.3, combined * 1.2 + 0.2))
+        combined_acc = backtest_acc * 0.6 + live_acc * 0.4
+        perf[name]["accuracy"] = combined_acc
+        perf[name]["weight"] = min(1.5, max(0.3, combined_acc * 1.2 + 0.2))
         perf[name]["last_results"] = last_results
     save_performance(perf)
 
 # ============ MAIN BOT LOGIC ============
 async def periodic_prediction(context: ContextTypes.DEFAULT_TYPE):
-    # fetch and store periods
+    print("Running periodic prediction...")
+    # fetch and store
     periods = fetch_periods(100)
     if periods:
         store_periods(periods)
-    # get all periods (latest first)
     rows = get_all_periods()
     if len(rows) < 15:
+        print("Not enough periods to predict")
         return
-    # build historyData list
     history_data = [{"period": r[0], "number": r[1], "big_small": r[2]} for r in rows]
-    # sequence of numbers (latest first)
     seq = [r["number"] for r in history_data]
-    # compute next period
     try:
         last_period = rows[0][0]
         next_period = str(int(last_period) + 1)
     except:
         next_period = "unknown"
-    # load current performance
     perf = load_performance()
-    # run ensemble
     pred_class, confidence, predictions_map, active = ensemble_predict(seq, perf)
-    # predict number
     pred_num = predict_number(seq, pred_class, history_data)
-    # send message if confidence >= 60 (or always send)
     msg = f"🎯 *Period {next_period}*\nPrediction: *{pred_num} ({pred_class})*\nConfidence: *{confidence}%*"
     if confidence >= 70:
         msg += "\n🔥 *SURESHOT!* 🔥"
-    # add active tricks info
     if active:
         top_tricks = active[:3]
         msg += "\n\n📊 *Best tricks:*\n" + "\n".join([f"{t[0]} → {t[1]} ({t[2]}%)" for t in top_tricks])
-    # send to user
     await context.bot.send_message(chat_id=CHAT_ID, text=msg, parse_mode="Markdown")
-    # save prediction
     save_prediction(next_period, pred_num, pred_class, confidence)
-    # now settlement: check if any pending predictions have been resolved by latest fetch
+    # settlement
     pending = get_pending_predictions()
     for p in pending:
-        p_period, p_pred_num, p_pred_class, p_conf = p
-        # find if this period exists in history_data
+        p_period, _, _, _ = p
         for rec in history_data:
             if rec["period"] == p_period:
                 actual_num = rec["number"]
                 actual_class = rec["big_small"]
-                if actual_num == p_pred_num:
+                if actual_num == p[1]:
                     result = "jackpot"
-                elif actual_class == p_pred_class:
+                elif actual_class == p[2]:
                     result = "win"
                 else:
                     result = "loss"
                 update_prediction_result(p_period, actual_num, actual_class, result)
-                # update performance only once (for the settled prediction)
-                # we need the predictionsMap that was stored? In DB we don't store it. To keep it simple, we skip updating performance from settlement in this version.
-                # But for accuracy, we can store predictionsMap as JSON in a separate table. For now, we rely on backtest + live learning via /predict command.
-                # The bot will retrain on each full fetch anyway.
+                # performance update using the stored predictions_map? We don't store, so skip.
                 break
+    # periodic retrain (backtest on latest 100)
+    full_history = [r[1] for r in rows][::-1]  # oldest first
+    backtest_and_set_weights(full_history)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("🤖 Wingo AI Bot active. I will send predictions every 2 minutes.\nUse /predict to force a prediction.\nUse /status to see bot health.")
+    await update.message.reply_text("🤖 Wingo AI Bot active. I will send predictions every 2 minutes.\nUse /predict to force a prediction.\nUse /status to see bot health.\nUse /tricks to see trick accuracies.")
 
 async def predict_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # manually trigger prediction
     await periodic_prediction(context)
 
 async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -619,31 +625,50 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     count = len(rows)
     await update.message.reply_text(f"✅ Bot is running.\n📊 Periods stored: {count}\n🔄 Next auto prediction in ~2 minutes.")
 
+async def tricks_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    perf = load_performance()
+    sorted_names = sorted(perf.keys(), key=lambda n: perf[n]["accuracy"], reverse=True)
+    msg = "📈 *Trick Performances (accuracy)*\n"
+    for name in sorted_names[:10]:
+        acc = perf[name]["accuracy"] * 100
+        msg += f"• {name}: {acc:.1f}%\n"
+    await update.message.reply_text(msg, parse_mode="Markdown")
+
+async def init_backtest():
+    periods = fetch_periods(100)
+    if periods:
+        store_periods(periods)
+    rows = get_all_periods()
+    if len(rows) >= 30:
+        history_numbers = [r[1] for r in rows][::-1]
+        backtest_and_set_weights(history_numbers)
+        print("Initial backtest complete")
+    else:
+        print("Not enough data for initial backtest")
+
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("predict", predict_command))
     app.add_handler(CommandHandler("status", status_command))
-    # schedule periodic task every 120 seconds
+    app.add_handler(CommandHandler("tricks", tricks_command))
     job_queue = app.job_queue
     if job_queue:
         job_queue.run_repeating(periodic_prediction, interval=120, first=10)
-    # also run a one-time initial backtest on startup
-    async def init_backtest():
-        periods = fetch_periods(100)
-        if periods:
-            store_periods(periods)
-        rows = get_all_periods()
-        if len(rows) >= 30:
-            history_numbers = [r[1] for r in rows][::-1]  # oldest first
-            backtest_and_set_weights(history_numbers)
-            print("Initial backtest complete")
-    # run init as a separate task
-    loop = asyncio.get_event_loop()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     loop.create_task(init_backtest())
-    # start bot
-    print("Bot started...")
-    app.run_polling(allowed_updates=Update.ALL_TYPES)
+    # Start polling with conflict resolution
+    loop.run_until_complete(app.bot.delete_webhook(drop_pending_updates=True))
+    loop.run_until_complete(app.initialize())
+    loop.run_until_complete(app.start())
+    try:
+        loop.run_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        loop.run_until_complete(app.stop())
+        loop.close()
 
 if __name__ == "__main__":
     main()
