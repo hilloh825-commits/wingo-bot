@@ -9,8 +9,8 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
 # ========== CONFIGURATION (set these in Railway environment) ==========
-BOT_TOKEN = os.getenv("BOT_TOKEN")    # ✅
-CHAT_ID = os.getenv("CHAT_ID")        # ✅
+BOT_TOKEN = os.getenv("BOT_TOKEN")        # ← must be set in Railway variables
+CHAT_ID   = os.getenv("CHAT_ID")          # ← must be set in Railway variables
 API_URL = "https://wingolast100.vercel.app/api/results?typeId=1&apiKey=12a04165-748c-4144-9398-96bd2e0ad956&token=1a97a413-ff57-4097-a44c-4bd402ace8d5&limit=100"
 
 # ========== RULES ==========
@@ -467,11 +467,15 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     conn.close()
 
 async def run_bot():
+    # ✅ Corrected initialization (no manual updater attributes)
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("status", status))
+
+    # Start the bot polling
     await app.initialize()
     await app.start()
+    # The Updater is created automatically; we start its polling in a background task
     asyncio.create_task(app.updater.start_polling())
 
     weights = load_weights()
@@ -535,7 +539,7 @@ async def run_bot():
                 conn.close()
             await asyncio.sleep(3)   # check every 3 seconds
         except Exception as e:
-            print(f"Error: {e}")
+            print(f"Error in prediction loop: {e}")
             await asyncio.sleep(5)
 
 if __name__ == "__main__":
